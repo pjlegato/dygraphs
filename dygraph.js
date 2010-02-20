@@ -487,7 +487,7 @@ Dygraph.prototype.getColors = function() {
 Dygraph.findPosX = function(obj) {
   var curleft = 0;
   if(obj.offsetParent)
-    while(1) 
+    while(1)
     {
       curleft += obj.offsetLeft;
       if(!obj.offsetParent)
@@ -1648,6 +1648,21 @@ Dygraph.prototype.detectTypeFromString_ = function(str) {
   }
 };
 
+/*
+ * Plucks the target indices from data.
+ * e.g. pluckIndices(["a", "b", "c", "d", "e"], [1, 3]) ->
+ *      ["b", "d"]
+ */
+Dygraph.pluckIndices = function(data, targets) {
+  var logger = this.log;
+
+  return targets.map(function(idx) {
+      if(idx >= data.length)
+        logger(Dygraph.ERROR, "Requested a field at index " + idx + ", which is higher than the number of available fields (" + data.length + ").");
+      return data[idx];
+     });
+};
+
 /**
  * Parses a string in a special csv format.  We expect a csv file where each
  * line is a date point, and the first field in each line is the date string.
@@ -1679,6 +1694,14 @@ Dygraph.prototype.parseCSV_ = function(data) {
   if (this.labelsFromCSV_) {
     start = 1;
     this.attrs_.labels = lines[0].split(delim);
+
+    if(this.attr_('fields')) {
+      var dateLabel = this.attrs_.labels[0];
+      // Take only the specified fields if given the 'fields' option.
+      // field 0, the date field, will always be taken in any case.
+      this.attrs_.labels = Dygraph.pluckIndices(this.attrs_.labels, this.attr_('fields'));
+      this.attrs_.labels.unshift(dateLabel); // add date field from header
+    }
   }
 
   var xParser;
@@ -1689,7 +1712,14 @@ Dygraph.prototype.parseCSV_ = function(data) {
     var line = lines[i];
     if (line.length == 0) continue;  // skip blank lines
     if (line[0] == '#') continue;    // skip comment lines
+
     var inFields = line.split(delim);
+    if(this.attr_('fields')) {
+      var date = inFields[0];
+      inFields = Dygraph.pluckIndices(inFields, this.attr_('fields'));
+      inFields.unshift(date);
+    }
+
     if (inFields.length < 2) continue;
 
     var fields = [];
